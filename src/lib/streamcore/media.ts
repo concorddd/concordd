@@ -26,7 +26,6 @@ export function buildDisplayMediaConstraints(options: ScreenShareOptions): Displ
       width: { ideal: res.width, max: res.width },
       height: { ideal: res.height, max: res.height },
       frameRate: { ideal: options.fps, max: options.fps },
-      // non-standard but widely supported hints
       cursor: "motion",
       displaySurface: "monitor",
     },
@@ -35,7 +34,6 @@ export function buildDisplayMediaConstraints(options: ScreenShareOptions): Displ
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
-          // chromium hint
           systemAudio: "include",
         }
       : false,
@@ -50,8 +48,6 @@ export function buildMicConstraints(deviceId?: string): MediaStreamConstraints {
       noiseSuppression: true,
       autoGainControl: true,
       channelCount: 1,
-      // @ts-expect-error chromium low-latency hint
-      latency: 0.01,
     },
     video: false,
   };
@@ -59,6 +55,11 @@ export function buildMicConstraints(deviceId?: string): MediaStreamConstraints {
 
 export function supportsDisplayMedia() {
   return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;
+}
+
+/** Celulares não expõem getDisplayMedia — a transmissão é feita do PC. */
+export function isTouchDevice() {
+  return typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 }
 
 export function describeTrack(track: MediaStreamTrack | undefined) {
