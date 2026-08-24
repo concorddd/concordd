@@ -11,7 +11,7 @@ import { createTransport, type RemoteParticipant } from "@/lib/streamcore/transp
 export type ShareStats = { width: number; height: number; fps: number; label: string } | null;
 
 export function useMediaEngine() {
-  const transport = useMemo(() => createTransport("local"), []);
+  const transport = useMemo(() => createTransport(), []);
 
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -42,6 +42,12 @@ export function useMediaEngine() {
 
   useEffect(() => transport.onParticipants(setParticipants), [transport]);
 
+  // Publica estado real (falando/mudo/transmitindo) para os outros participantes.
+  useEffect(() => {
+    if (!connected) return;
+    void transport.setLocalState({ speaking: speaking && micOn, muted: !micOn, sharing });
+  }, [connected, speaking, micOn, sharing, transport]);
+
   const refreshDevices = useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return;
     const list = await navigator.mediaDevices.enumerateDevices();
@@ -60,34 +66,38 @@ export function useMediaEngine() {
     setSpeaking(false);
   }, []);
 
-  const startMeter = useCallback((stream: MediaStream) => {
-    stopMeter();
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    audioCtxRef.current = ctx;
-    const source = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    analyser.smoothingTimeConstant = 0.75;
-    source.connect(analyser);
-    const buf = new Float32Array(analyser.fftSize);
+  const startMeter = useCallback(
+    (stream: MediaStream) => {
+      stopMeter();
+      const Ctx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new Ctx();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.75;
+      source.connect(analyser);
+      const buf = new Float32Array(analyser.fftSize);
 
-    const tick = () => {
-      analyser.getFloatTimeDomainData(buf);
-      let sum = 0;
-      for (let i = 0; i < buf.length; i++) sum += buf[i]! * buf[i]!;
-      const rms = Math.sqrt(sum / buf.length);
-      const value = Math.min(1, rms * 6);
-      setLevel(value);
-      // VAD simples com limiar
-      setSpeaking(value > 0.08);
+      const tick = () => {
+        analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i]! * buf[i]!;
+        const rms = Math.sqrt(sum / buf.length);
+        const value = Math.min(1, rms * 6);
+        setLevel(value);
+        setSpeaking(value > 0.08);
+        rafRef.current = requestAnimationFrame(tick);
+      };
       rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  }, [stopMeter]);
+    },
+    [stopMeter],
+  );
 
   const join = useCallback(
-    async (roomId: string, channelId: string, identity: string) => {
+    async (roomId: string, channelId: string, userId: string, name: string) => {
       setError(null);
       setConnecting(true);
       try {
@@ -96,44 +106,64 @@ export function useMediaEngine() {
         const track = stream.getAudioTracks()[0];
         if (track) track.enabled = micOn;
         startMeter(stream);
-        await transport.connect({ roomId, channelId, identity });
-        await transport.publishAudio(track ?? null);
+        await transport.connect({ roomId, channelId, userId, name });
+        if (track) await transport.addTrack(track);
         await refreshDevices();
         setConnected(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível acessar o microfone.");
+        micStreamRef.current?.getTracks().forEach((t) => t.stop());
+        micStreamRef.current = null;
+        stopMeter();
       } finally {
         setConnecting(false);
       }
     },
-    [micId, micOn, refreshDevices, startMeter, transport],
+    [micId, micOn, refreshDevices, startMeter, stopMeter, transport],
   );
 
   const stopShare = useCallback(async () => {
+    const stream = screenStream;
+    if (stream) {
+      for (const t of stream.getTracks()) {
+        await transport.removeTrack(t);
+        t.stop();
+      }
+    }
+    setScreenStream(null);
+    setSharing(false);
+    setShareStats(null);
+  }, [screenStream, transport]);
+
+  /** Saída limpa: encerra captura, peers e presença. */
+  const leave = useCallback(async () => {
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    micStreamRef.current = null;
     screenStream?.getTracks().forEach((t) => t.stop());
     setScreenStream(null);
     setSharing(false);
     setShareStats(null);
-    await transport.publishScreen(null);
-  }, [screenStream, transport]);
-
-  const leave = useCallback(async () => {
-    micStreamRef.current?.getTracks().forEach((t) => t.stop());
-    micStreamRef.current = null;
     stopMeter();
-    await stopShare();
     await transport.disconnect();
+    setParticipants([]);
     setConnected(false);
-  }, [stopMeter, stopShare, transport]);
+    setDeafened(false);
+    setMicOn(true);
+  }, [screenStream, stopMeter, transport]);
 
   const startShare = useCallback(async () => {
     setError(null);
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setError("Este dispositivo não permite transmitir a tela. Transmita pelo PC.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia(
         buildDisplayMediaConstraints({ resolution, fps, systemAudio }),
       );
       const videoTrack = stream.getVideoTracks()[0];
       videoTrack?.addEventListener("ended", () => {
+        stream.getTracks().forEach((t) => void transport.removeTrack(t));
         setScreenStream(null);
         setSharing(false);
         setShareStats(null);
@@ -141,7 +171,7 @@ export function useMediaEngine() {
       setScreenStream(stream);
       setSharing(true);
       setShareStats(describeTrack(videoTrack));
-      await transport.publishScreen(stream);
+      for (const t of stream.getTracks()) await transport.addTrack(t);
     } catch (e) {
       if (e instanceof Error && e.name === "NotAllowedError") return;
       setError(e instanceof Error ? e.message : "Falha ao iniciar a transmissão.");
@@ -170,6 +200,7 @@ export function useMediaEngine() {
     setMicOn((prev) => {
       const next = !prev;
       micStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = next));
+      if (next) setDeafened(false);
       return next;
     });
   }, []);
@@ -190,8 +221,9 @@ export function useMediaEngine() {
       micStreamRef.current?.getTracks().forEach((t) => t.stop());
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       audioCtxRef.current?.close().catch(() => {});
+      void transport.disconnect();
     };
-  }, []);
+  }, [transport]);
 
   return {
     connected,
