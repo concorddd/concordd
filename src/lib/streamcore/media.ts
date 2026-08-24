@@ -26,7 +26,7 @@ export function buildDisplayMediaConstraints(options: ScreenShareOptions): Displ
       width: { ideal: res.width, max: res.width },
       height: { ideal: res.height, max: res.height },
       frameRate: { ideal: options.fps, max: options.fps },
-      // @ts-expect-error non-standard but widely supported hints
+      // non-standard but widely supported hints
       cursor: "motion",
       displaySurface: "monitor",
     },
@@ -35,7 +35,7 @@ export function buildDisplayMediaConstraints(options: ScreenShareOptions): Displ
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
-          // @ts-expect-error chromium hint
+          // chromium hint
           systemAudio: "include",
         }
       : false,
