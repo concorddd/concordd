@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import { Menu, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMediaEngine } from "@/hooks/useMediaEngine";
 import { ServerRail, type Room } from "@/components/streamcore/ServerRail";
@@ -11,10 +12,12 @@ import { UserBar } from "@/components/streamcore/UserBar";
 import { ChatPanel, type ChatMessage } from "@/components/streamcore/ChatPanel";
 import { MediaSettingsDialog } from "@/components/streamcore/MediaSettingsDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { supportsDisplayMedia } from "@/lib/streamcore/media";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -51,6 +54,8 @@ function StreamCore() {
   const [textId, setTextId] = useState<string | null>(null);
   const [connectedChannelId, setConnectedChannelId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState<"room" | "channel" | null>(null);
   const [draftName, setDraftName] = useState("");
 
@@ -59,6 +64,7 @@ function StreamCore() {
     session?.user.email?.split("@")[0] ??
     "Você";
   const initials = displayName.slice(0, 2).toUpperCase();
+  const canShare = supportsDisplayMedia();
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
@@ -138,14 +144,30 @@ function StreamCore() {
   const textChannel = useMemo(() => channels.find((c) => c.id === textId) ?? null, [channels, textId]);
 
   const join = useCallback(async () => {
-    if (!room || !voiceChannel) return;
-    await engine.join(room.id, voiceChannel.id, displayName);
+    if (!room || !voiceChannel || !session) return;
+    setNavOpen(false);
+    await engine.join(room.id, voiceChannel.id, session.user.id, displayName);
     setConnectedChannelId(voiceChannel.id);
-  }, [engine, room, voiceChannel, displayName]);
+  }, [engine, room, voiceChannel, displayName, session]);
+
+  const leave = useCallback(async () => {
+    await engine.leave();
+    setConnectedChannelId(null);
+    toast("Você saiu da chamada");
+  }, [engine]);
 
   useEffect(() => {
     if (!engine.connected) setConnectedChannelId(null);
   }, [engine.connected]);
+
+  // Encerra tudo de forma limpa ao fechar a aba.
+  useEffect(() => {
+    const handler = () => {
+      void engine.leave();
+    };
+    window.addEventListener("pagehide", handler);
+    return () => window.removeEventListener("pagehide", handler);
+  }, [engine]);
 
   const sendMessage = async (content: string) => {
     if (!session || !textId) return;
@@ -201,40 +223,97 @@ function StreamCore() {
   };
 
   if (!ready || !session) {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Carregando…</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Carregando…
+      </div>
+    );
   }
+
+  const status = engine.connected
+    ? engine.sharing
+      ? "Transmitindo"
+      : "Em chamada"
+    : "Online";
+
+  const navigation = (
+    <div className="flex h-full min-h-0">
+      <ServerRail
+        rooms={rooms}
+        activeRoomId={roomId}
+        onSelect={(id) => {
+          setRoomId(id);
+        }}
+        onCreate={() => {
+          setDraftName("");
+          setCreateOpen("room");
+        }}
+      />
+      <ChannelList
+        room={room}
+        channels={channels}
+        activeVoiceId={voiceId}
+        activeTextId={textId}
+        connectedChannelId={connectedChannelId}
+        onSelectVoice={(id) => {
+          setVoiceId(id);
+          setNavOpen(false);
+        }}
+        onSelectText={(id) => {
+          setTextId(id);
+          setNavOpen(false);
+        }}
+        canManage={room?.owner_id === session.user.id}
+        onCreateChannel={() => {
+          setDraftName("");
+          setCreateOpen("channel");
+        }}
+      />
+    </div>
+  );
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-screen w-full overflow-hidden bg-background">
-        <ServerRail
-          rooms={rooms}
-          activeRoomId={roomId}
-          onSelect={setRoomId}
-          onCreate={() => {
-            setDraftName("");
-            setCreateOpen("room");
-          }}
-        />
-
-        <div className="hidden md:block">
-          <ChannelList
-            room={room}
-            channels={channels}
-            activeVoiceId={voiceId}
-            activeTextId={textId}
-            connectedChannelId={connectedChannelId}
-            onSelectVoice={setVoiceId}
-            onSelectText={setTextId}
-            canManage={room?.owner_id === session.user.id}
-            onCreateChannel={() => {
-              setDraftName("");
-              setCreateOpen("channel");
-            }}
-          />
-        </div>
+      <div className="flex h-[100dvh] w-full overflow-hidden bg-background">
+        {/* Desktop: 3 colunas */}
+        <div className="hidden md:flex">{navigation}</div>
 
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* Mobile: barra superior com gaveta e chat */}
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:hidden">
+            <Sheet open={navOpen} onOpenChange={setNavOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Abrir menu de salas e canais">
+                  <Menu className="size-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[19rem] p-0">
+                <SheetTitle className="sr-only">Salas e canais</SheetTitle>
+                {navigation}
+              </SheetContent>
+            </Sheet>
+            <p className="min-w-0 flex-1 truncate font-display text-sm font-semibold">
+              {room?.name ?? "StreamCore"} · {voiceChannel?.name ?? "—"}
+            </p>
+            <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Abrir chat">
+                  <MessageSquare className="size-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[20rem] p-0 sm:w-96">
+                <SheetTitle className="sr-only">Chat do canal</SheetTitle>
+                <ChatPanel
+                  channelName={textChannel?.name ?? "geral"}
+                  messages={messages}
+                  onSend={sendMessage}
+                  disabled={!textId}
+                  className="w-full border-l-0"
+                />
+              </SheetContent>
+            </Sheet>
+          </div>
+
           <div className="flex min-h-0 flex-1">
             <div className="flex min-w-0 flex-1 flex-col">
               <Stage
@@ -244,6 +323,7 @@ function StreamCore() {
                 displayName={displayName}
                 initials={initials}
                 onJoin={join}
+                onLeave={leave}
               />
             </div>
             <div className="hidden lg:block">
@@ -260,8 +340,14 @@ function StreamCore() {
             engine={engine}
             name={displayName}
             initials={initials}
+            status={status}
+            canShare={canShare}
             onOpenSettings={() => setSettingsOpen(true)}
-            onSignOut={() => supabase.auth.signOut()}
+            onSignOut={async () => {
+              await engine.leave();
+              await supabase.auth.signOut();
+            }}
+            onLeave={leave}
           />
         </div>
       </div>
