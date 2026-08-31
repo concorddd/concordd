@@ -396,7 +396,7 @@ function StreamCore() {
                 className="w-full border-l-0"
               />
             </div>
-            <div className="hidden lg:block">
+            <div className="hidden h-full shrink-0 md:flex">
               <ChatPanel
                 channelName={textChannel?.name ?? "geral"}
                 messages={messages}
