@@ -229,9 +229,12 @@ export class MeshTransport {
       if (candidate) void this.signal(peerId, { candidate: candidate.toJSON() });
     };
     pc.ontrack = ({ track }) => {
-      entry.stream.addTrack(track);
+      // Recria o MediaStream a cada faixa nova para que o <audio>/<video>
+      // receba um srcObject novo e volte a tocar (Chrome ignora faixas
+      // adicionadas a um stream já atribuído).
+      entry.stream = new MediaStream([...entry.stream.getTracks(), track]);
       track.addEventListener("ended", () => {
-        entry.stream.removeTrack(track);
+        entry.stream = new MediaStream(entry.stream.getTracks().filter((t) => t !== track));
         this.emit();
       });
       this.emit();
