@@ -279,7 +279,7 @@ function StreamCore() {
         <div className="hidden md:flex">{navigation}</div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Mobile: barra superior com gaveta e chat */}
+          {/* Mobile: barra superior com gaveta e alternância Chat / Chamada */}
           <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:hidden">
             <Sheet open={navOpen} onOpenChange={setNavOpen}>
               <SheetTrigger asChild>
@@ -292,30 +292,39 @@ function StreamCore() {
                 {navigation}
               </SheetContent>
             </Sheet>
-            <p className="min-w-0 flex-1 truncate font-display text-sm font-semibold">
-              {room?.name ?? "StreamCore"} · {voiceChannel?.name ?? "—"}
-            </p>
-            <Sheet open={chatOpen} onOpenChange={setChatOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Abrir chat">
-                  <MessageSquare className="size-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[20rem] p-0 sm:w-96">
-                <SheetTitle className="sr-only">Chat do canal</SheetTitle>
-                <ChatPanel
-                  channelName={textChannel?.name ?? "geral"}
-                  messages={messages}
-                  onSend={sendMessage}
-                  disabled={!textId}
-                  className="w-full border-l-0"
-                />
-              </SheetContent>
-            </Sheet>
+            <div className="ml-auto flex items-center gap-1 rounded-xl bg-surface-2 p-1">
+              <button
+                onClick={() => setMobileView("chat")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  mobileView === "chat"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                <MessageSquare className="size-4" /> Chat
+              </button>
+              <button
+                onClick={() => setMobileView("call")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  mobileView === "call"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                <Radio className="size-4" /> Chamada
+              </button>
+            </div>
           </div>
 
           <div className="flex min-h-0 flex-1">
-            <div className="flex min-w-0 flex-1 flex-col">
+            <div
+              className={cn(
+                "min-w-0 flex-1 flex-col md:flex",
+                mobileView === "call" ? "flex" : "hidden",
+              )}
+            >
               <Stage
                 engine={engine}
                 room={room}
@@ -324,6 +333,20 @@ function StreamCore() {
                 initials={initials}
                 onJoin={join}
                 onLeave={leave}
+              />
+            </div>
+            <div
+              className={cn(
+                "min-w-0 flex-1 md:hidden",
+                mobileView === "chat" ? "flex" : "hidden",
+              )}
+            >
+              <ChatPanel
+                channelName={textChannel?.name ?? "geral"}
+                messages={messages}
+                onSend={sendMessage}
+                disabled={!textId}
+                className="w-full border-l-0"
               />
             </div>
             <div className="hidden lg:block">
@@ -335,6 +358,7 @@ function StreamCore() {
               />
             </div>
           </div>
+
 
           <UserBar
             engine={engine}
