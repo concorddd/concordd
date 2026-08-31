@@ -35,8 +35,22 @@ type PresenceState = {
   sharing: boolean;
 };
 
+/**
+ * STUN descobre o IP público; TURN é obrigatório quando os dois usuários estão
+ * em redes/NATs diferentes (o caso "meu amigo não me ouve"). Sem relay, a
+ * conexão P2P simplesmente nunca chega ao estado "connected".
+ */
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: ["stun:stun.l.google.com:19302", "stun:global.stun.twilio.com:3478"] },
+  {
+    urls: [
+      "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:443",
+      "turn:openrelay.metered.ca:443?transport=tcp",
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];
 
 function initialsOf(name: string) {
