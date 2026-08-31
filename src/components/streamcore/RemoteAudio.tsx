@@ -15,8 +15,12 @@ export function RemoteAudio({
   useEffect(() => {
     const el = ref.current;
     if (!el || !stream) return;
-    el.srcObject = stream;
-    el.play().catch(() => {});
+    if (el.srcObject !== stream) el.srcObject = stream;
+    el.volume = 1;
+    const tryPlay = () => void el.play().catch(() => {});
+    tryPlay();
+    el.addEventListener("canplay", tryPlay);
+    return () => el.removeEventListener("canplay", tryPlay);
   }, [stream]);
 
   useEffect(() => {
