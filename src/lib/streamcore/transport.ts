@@ -299,16 +299,30 @@ export class MeshTransport {
           data.description.type === "offer" && (entry.makingOffer || pc.signalingState !== "stable");
         entry.ignoreOffer = !entry.polite && offerCollision;
         if (entry.ignoreOffer) return;
+        // O par "educado" desfaz sua própria oferta antes de aceitar a do outro.
+        if (offerCollision) await pc.setLocalDescription({ type: "rollback" });
         await pc.setRemoteDescription(data.description);
+        for (const c of entry.pendingCandidates.splice(0)) {
+          try {
+            await pc.addIceCandidate(c);
+          } catch {
+            /* ignorar candidato inválido */
+          }
+        }
         if (data.description.type === "offer") {
           await pc.setLocalDescription();
           await this.signal(payload.from, { description: pc.localDescription?.toJSON() });
         }
       } else if (data.candidate) {
+        // Candidatos que chegam antes da descrição remota precisam esperar.
+        if (!pc.remoteDescription) {
+          entry.pendingCandidates.push(data.candidate);
+          return;
+        }
         try {
           await pc.addIceCandidate(data.candidate);
         } catch {
-          if (!entry.ignoreOffer) throw new Error("ice");
+          /* ignorar candidato inválido */
         }
       }
     } catch {
