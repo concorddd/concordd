@@ -63,6 +63,7 @@ type PeerEntry = {
   pc: RTCPeerConnection;
   polite: boolean;
   makingOffer: boolean;
+  isSettingRemoteAnswerPending: boolean;
   ignoreOffer: boolean;
   stream: MediaStream;
   pendingCandidates: RTCIceCandidateInit[];
@@ -78,9 +79,13 @@ export class MeshTransport {
   private self: ConnectOptions | null = null;
   private state: LocalState = { speaking: false, muted: false, sharing: false };
 
-  async connect(opts: ConnectOptions) {
+  async connect(opts: ConnectOptions, initialTracks: MediaStreamTrack[] = []) {
     await this.disconnect();
     this.self = opts;
+    for (const track of initialTracks) {
+      this.localTracks.add(track);
+      this.senders.set(track, new Map());
+    }
 
     const channel = supabase.channel(`voice:${opts.channelId}`, {
       config: { presence: { key: opts.userId }, broadcast: { self: false } },
@@ -97,9 +102,17 @@ export class MeshTransport {
       this.syncPresence();
     });
 
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error("Tempo esgotado ao conectar ao canal.")), 12_000);
       channel.subscribe((status) => {
-        if (status === "SUBSCRIBED") resolve();
+        if (status === "SUBSCRIBED") {
+          window.clearTimeout(timeout);
+          resolve();
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          window.clearTimeout(timeout);
+          reject(new Error("Não foi possível abrir o canal em tempo real."));
+        }
       });
     });
 
@@ -212,6 +225,7 @@ export class MeshTransport {
       // desempate determinístico: o "maior" id é o educado
       polite: selfId > peerId,
       makingOffer: false,
+      isSettingRemoteAnswerPending: false,
       ignoreOffer: false,
       stream: new MediaStream(),
       pendingCandidates: [],
@@ -297,13 +311,21 @@ export class MeshTransport {
 
     try {
       if (data.description) {
-        const offerCollision =
-          data.description.type === "offer" && (entry.makingOffer || pc.signalingState !== "stable");
+        const readyForOffer =
+          !entry.makingOffer &&
+          (pc.signalingState === "stable" || entry.isSettingRemoteAnswerPending);
+        const offerCollision = data.description.type === "offer" && !readyForOffer;
         entry.ignoreOffer = !entry.polite && offerCollision;
         if (entry.ignoreOffer) return;
-        // O par "educado" desfaz sua própria oferta antes de aceitar a do outro.
-        if (offerCollision) await pc.setLocalDescription({ type: "rollback" });
-        await pc.setRemoteDescription(data.description);
+
+        entry.isSettingRemoteAnswerPending = data.description.type === "answer";
+        try {
+          // Navegadores modernos fazem rollback implícito ao receber uma oferta
+          // concorrente no lado educado (padrão WebRTC Perfect Negotiation).
+          await pc.setRemoteDescription(data.description);
+        } finally {
+          entry.isSettingRemoteAnswerPending = false;
+        }
         for (const c of entry.pendingCandidates.splice(0)) {
           try {
             await pc.addIceCandidate(c);
