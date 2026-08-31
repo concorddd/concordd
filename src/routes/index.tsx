@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -58,6 +58,8 @@ function StreamCore() {
   const [mobileView, setMobileView] = useState<"chat" | "call">("chat");
   const [createOpen, setCreateOpen] = useState<"room" | "channel" | null>(null);
   const [draftName, setDraftName] = useState("");
+  const leaveRef = useRef(engine.leave);
+  leaveRef.current = engine.leave;
 
   const displayName =
     (session?.user.user_metadata?.["display_name"] as string | undefined) ??
@@ -162,12 +164,10 @@ function StreamCore() {
 
   // Encerra tudo de forma limpa ao fechar a aba.
   useEffect(() => {
-    const handler = () => {
-      void engine.leave();
-    };
+    const handler = () => void leaveRef.current();
     window.addEventListener("pagehide", handler);
     return () => window.removeEventListener("pagehide", handler);
-  }, [engine]);
+  }, []);
 
   const sendMessage = async (content: string) => {
     if (!session || !textId) return;

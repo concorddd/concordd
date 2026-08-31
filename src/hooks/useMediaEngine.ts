@@ -106,11 +106,11 @@ export function useMediaEngine() {
         const track = stream.getAudioTracks()[0];
         if (track) track.enabled = micOn;
         startMeter(stream);
-        await transport.connect({ roomId, channelId, userId, name });
-        if (track) await transport.addTrack(track);
+        await transport.connect({ roomId, channelId, userId, name }, track ? [track] : []);
         await refreshDevices();
         setConnected(true);
       } catch (e) {
+        await transport.disconnect();
         setError(e instanceof Error ? e.message : "Não foi possível acessar o microfone.");
         micStreamRef.current?.getTracks().forEach((t) => t.stop());
         micStreamRef.current = null;
