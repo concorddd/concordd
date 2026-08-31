@@ -121,7 +121,9 @@ export function ChatPanel({
     // Atualiza o marcador para a mensagem mais recente, de forma que a próxima
     // reabertura só mostre o separador se houver mensagens realmente novas.
     const latest = messages[messages.length - 1];
-    localStorage.setItem(key, String(new Date(latest.created_at).getTime()));
+    if (latest) {
+      localStorage.setItem(key, String(new Date(latest.created_at).getTime()));
+    }
   }, [messages, channelId]);
 
   // Rola para o fim ao chegarem novas mensagens (tempo real).
@@ -131,10 +133,9 @@ export function ChatPanel({
 
   // Ao reabrir com separador, posiciona a rolagem nele em vez do fim.
   useEffect(() => {
-    if (newMarkerId) {
-      const t = setTimeout(() => markerRef.current?.scrollIntoView({ block: "start" }), 0);
-      return () => clearTimeout(t);
-    }
+    if (!newMarkerId) return;
+    const t = setTimeout(() => markerRef.current?.scrollIntoView({ block: "start" }), 0);
+    return () => clearTimeout(t);
   }, [newMarkerId]);
 
   const submit = async (e: React.FormEvent) => {
