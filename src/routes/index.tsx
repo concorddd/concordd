@@ -388,6 +388,7 @@ function StreamCore() {
               )}
             >
               <ChatPanel
+                channelId={textId}
                 channelName={textChannel?.name ?? "geral"}
                 messages={messages}
                 onSend={sendMessage}
