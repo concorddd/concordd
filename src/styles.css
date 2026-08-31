@@ -195,3 +195,96 @@
 @utility animate-live {
   animation: live-blink 1.4s ease-in-out infinite;
 }
+
+/* ---- Premium layer: glass, depth, motion ---- */
+:root {
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+  --shadow-soft: 0 1px 1px oklch(0 0 0 / 0.2), 0 8px 24px -12px oklch(0 0 0 / 0.55);
+  --shadow-lift: 0 2px 4px oklch(0 0 0 / 0.25), 0 24px 48px -20px oklch(0 0 0 / 0.7);
+  --glass-bg: color-mix(in oklab, var(--surface) 62%, transparent);
+}
+
+@layer base {
+  h1 {
+    font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+  p {
+    line-height: 1.65;
+  }
+  button,
+  a,
+  [role="button"] {
+    transition:
+      background-color 200ms var(--ease-premium),
+      color 200ms var(--ease-premium),
+      border-color 200ms var(--ease-premium),
+      box-shadow 240ms var(--ease-premium),
+      transform 240ms var(--ease-premium);
+  }
+  button:active,
+  [role="button"]:active {
+    transform: scale(0.985);
+  }
+}
+
+@utility glass-panel {
+  background-color: var(--glass-bg);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--shadow-soft);
+}
+
+@utility shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+@utility hover-lift {
+  transition:
+    transform 300ms var(--ease-premium),
+    box-shadow 300ms var(--ease-premium),
+    border-color 300ms var(--ease-premium);
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+    border-color: color-mix(in oklab, var(--primary) 40%, var(--border));
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 520ms var(--ease-premium) both;
+}
+
+/* Stagger: aplica atraso escalonado aos filhos diretos */
+@utility stagger-children {
+  & > * {
+    animation: fade-up 520ms var(--ease-premium) both;
+  }
+  & > *:nth-child(1) { animation-delay: 40ms; }
+  & > *:nth-child(2) { animation-delay: 100ms; }
+  & > *:nth-child(3) { animation-delay: 160ms; }
+  & > *:nth-child(4) { animation-delay: 220ms; }
+  & > *:nth-child(5) { animation-delay: 280ms; }
+  & > *:nth-child(6) { animation-delay: 340ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
