@@ -37,7 +37,7 @@ const GROUPS: { label: string; emojis: string[] }[] = [
   },
 ];
 
-export function EmojiPicker({ onPick, disabled }: { onPick: (emoji: string) => void; disabled?: boolean }) {
+export function EmojiPicker({ onPick, disabled }: { onPick: (emoji: string) => void; disabled?: boolean | undefined }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState(0);
 
