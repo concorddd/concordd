@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Hash, SendHorizonal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export type ChatMessage = {
   id: string;
@@ -17,11 +18,13 @@ export function ChatPanel({
   messages,
   onSend,
   disabled,
+  className,
 }: {
   channelName: string;
   messages: ChatMessage[];
   onSend: (content: string) => void;
   disabled?: boolean;
+  className?: string | undefined;
 }) {
   const [value, setValue] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -39,7 +42,7 @@ export function ChatPanel({
   };
 
   return (
-    <section className="flex h-full w-80 shrink-0 flex-col border-l border-border bg-surface">
+    <section className={cn("flex h-full w-80 shrink-0 flex-col border-l border-border bg-surface", className)}>
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
         <Hash className="size-4 text-muted-foreground" />
         <h2 className="font-display text-sm font-semibold">{channelName}</h2>

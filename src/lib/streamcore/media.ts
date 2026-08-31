@@ -43,7 +43,7 @@ export function buildDisplayMediaConstraints(options: ScreenShareOptions): Displ
 export function buildMicConstraints(deviceId?: string): MediaStreamConstraints {
   return {
     audio: {
-      deviceId: deviceId ? { exact: deviceId } : undefined,
+      ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: true,

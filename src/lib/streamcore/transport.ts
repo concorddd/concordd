@@ -15,7 +15,7 @@ export type RemoteParticipant = {
   speaking: boolean;
   muted: boolean;
   sharing: boolean;
-  stream?: MediaStream;
+  stream?: MediaStream | undefined;
 };
 
 export type LocalState = { speaking: boolean; muted: boolean; sharing: boolean };
