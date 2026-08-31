@@ -326,7 +326,7 @@ function StreamCore() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Mobile: barra superior com gaveta e alternância Chat / Chamada */}
-          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:hidden">
+          <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-2 md:hidden">
             <Sheet open={navOpen} onOpenChange={setNavOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Abrir menu de salas e canais">
@@ -388,6 +388,7 @@ function StreamCore() {
               )}
             >
               <ChatPanel
+                channelId={textId}
                 channelName={textChannel?.name ?? "geral"}
                 messages={messages}
                 onSend={sendMessage}
@@ -398,6 +399,7 @@ function StreamCore() {
             </div>
             <div className="hidden h-full shrink-0 md:flex">
               <ChatPanel
+                channelId={textId}
                 channelName={textChannel?.name ?? "geral"}
                 messages={messages}
                 onSend={sendMessage}
