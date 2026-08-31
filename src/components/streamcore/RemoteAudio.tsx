@@ -6,9 +6,9 @@ export function RemoteAudio({
   deafened,
   sinkId,
 }: {
-  stream?: MediaStream;
+  stream?: MediaStream | undefined;
   deafened: boolean;
-  sinkId?: string;
+  sinkId?: string | undefined;
 }) {
   const ref = useRef<HTMLAudioElement>(null);
 
