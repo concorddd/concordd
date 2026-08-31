@@ -353,10 +353,6 @@ function ScreenStage({
               maxHeight: `min(100%, ${RESOLUTIONS[viewQuality].height}px)`,
             }}
           />
-          <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-background/70 px-2.5 py-1 text-[11px] backdrop-blur">
-            <span className="size-1.5 rounded-full bg-live animate-live" />
-            {share.name}
-          </div>
           {zoom > 1 && (
             <button
               onClick={() => setZoom(1)}
