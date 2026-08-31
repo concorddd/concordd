@@ -65,6 +65,7 @@ type PeerEntry = {
   makingOffer: boolean;
   ignoreOffer: boolean;
   stream: MediaStream;
+  pendingCandidates: RTCIceCandidateInit[];
 };
 
 export class MeshTransport {
@@ -213,6 +214,7 @@ export class MeshTransport {
       makingOffer: false,
       ignoreOffer: false,
       stream: new MediaStream(),
+      pendingCandidates: [],
     };
     this.peers.set(peerId, entry);
 
