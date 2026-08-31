@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Hash, Paperclip, SendHorizonal, Download, FileText, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,7 @@ function Attachment({ message }: { message: ChatMessage }) {
 
 export function ChatPanel({
   channelName,
+  channelId,
   messages,
   onSend,
   onSendFile,
@@ -85,6 +86,7 @@ export function ChatPanel({
   className,
 }: {
   channelName: string;
+  channelId?: string | null;
   messages: ChatMessage[];
   onSend: (content: string) => void;
   onSendFile?: (file: File) => Promise<void>;
@@ -94,12 +96,46 @@ export function ChatPanel({
   const [value, setValue] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [newMarkerId, setNewMarkerId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Canal já inicializado nesta sessão (evita reexibir o separador ao trocar de aba).
+  const initRef = useRef<string | null>(null);
 
+  // Separador "Novas mensagens": aparece apenas ao reabrir o app/site quando há
+  // mensagens mais recentes que a última visita (timestamp salvo em localStorage).
+  useEffect(() => {
+    if (!channelId || messages.length === 0) return;
+    const key = `sc:lastread:${channelId}`;
+    if (initRef.current !== channelId) {
+      initRef.current = channelId;
+      const stored = Number(localStorage.getItem(key) ?? 0);
+      if (stored) {
+        const firstNew = messages.find((m) => new Date(m.created_at).getTime() > stored);
+        setNewMarkerId(firstNew ? firstNew.id : null);
+      } else {
+        setNewMarkerId(null);
+      }
+    }
+    // Atualiza o marcador para a mensagem mais recente, de forma que a próxima
+    // reabertura só mostre o separador se houver mensagens realmente novas.
+    const latest = messages[messages.length - 1];
+    localStorage.setItem(key, String(new Date(latest.created_at).getTime()));
+  }, [messages, channelId]);
+
+  // Rola para o fim ao chegarem novas mensagens (tempo real).
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  // Ao reabrir com separador, posiciona a rolagem nele em vez do fim.
+  useEffect(() => {
+    if (newMarkerId) {
+      const t = setTimeout(() => markerRef.current?.scrollIntoView({ block: "start" }), 0);
+      return () => clearTimeout(t);
+    }
+  }, [newMarkerId]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,37 +159,48 @@ export function ChatPanel({
 
   return (
     <section className={cn("flex h-full w-80 shrink-0 flex-col border-l border-border bg-surface", className)}>
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
         <Hash className="size-4 text-muted-foreground" />
         <h2 className="font-display text-sm font-semibold">{channelName}</h2>
       </header>
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
         {messages.length === 0 && (
           <p className="text-xs text-muted-foreground">Nenhuma mensagem ainda. Diga um olá.</p>
         )}
         {messages.map((m) => (
-          <div key={m.id} className="flex gap-2.5">
-            <UserAvatar
-              userId={m.user_id}
-              name={m.author_name}
-              avatarPath={m.avatar_path ?? null}
-              className="mt-0.5 size-7 text-[10px]"
-            />
-            <div className="min-w-0">
-              <p className="text-xs font-semibold">
-                {m.author_name}{" "}
-                <span className="font-normal text-muted-foreground">
-                  {new Date(m.created_at).toLocaleTimeString("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+          <Fragment key={m.id}>
+            {m.id === newMarkerId && (
+              <div ref={markerRef} className="flex items-center gap-2 py-1">
+                <div className="h-px flex-1 bg-primary/50" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  Novas mensagens
                 </span>
-              </p>
-              {m.content && <p className="break-words text-sm text-foreground/90">{m.content}</p>}
-              <Attachment message={m} />
+                <div className="h-px flex-1 bg-primary/50" />
+              </div>
+            )}
+            <div className="flex gap-2.5">
+              <UserAvatar
+                userId={m.user_id}
+                name={m.author_name}
+                avatarPath={m.avatar_path ?? null}
+                className="mt-0.5 size-7 text-[10px]"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold">
+                  {m.author_name}{" "}
+                  <span className="font-normal text-muted-foreground">
+                    {new Date(m.created_at).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </p>
+                {m.content && <p className="break-words text-sm text-foreground/90">{m.content}</p>}
+                <Attachment message={m} />
+              </div>
             </div>
-          </div>
+          </Fragment>
         ))}
         <div ref={endRef} />
       </div>
@@ -169,7 +216,7 @@ export function ChatPanel({
         </div>
       )}
 
-      <form onSubmit={submit} className="flex items-center gap-1 border-t border-border p-3">
+      <form onSubmit={submit} className="flex items-center gap-1 border-t border-border p-2.5">
         <EmojiPicker disabled={disabled} onPick={(e) => setValue((v) => v + e)} />
         <input
           ref={fileRef}
