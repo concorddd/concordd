@@ -24,7 +24,7 @@ export function ServerRail({
   return (
     <nav
       aria-label="Salas"
-      className="flex h-full w-[72px] shrink-0 flex-col items-center gap-2 border-r border-border bg-background py-3"
+      className="flex h-full w-[72px] shrink-0 flex-col items-center gap-2 border-r border-border bg-background py-3 max-md:saturate-125 max-sm:saturate-150"
     >
       <div className="mb-1 flex size-11 items-center justify-center rounded-2xl gradient-primary text-primary-foreground">
         <Radio className="size-5" />

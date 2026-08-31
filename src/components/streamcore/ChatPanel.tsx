@@ -159,7 +159,7 @@ export function ChatPanel({
   };
 
   return (
-    <section className={cn("flex h-full w-80 shrink-0 flex-col border-l border-border bg-surface", className)}>
+    <section className={cn("flex h-full w-80 shrink-0 flex-col border-l border-border bg-surface max-md:saturate-125 max-sm:saturate-150", className)}>
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
         <Hash className="size-4 text-muted-foreground" />
         <h2 className="font-display text-sm font-semibold">{channelName}</h2>

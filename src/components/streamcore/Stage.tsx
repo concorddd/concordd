@@ -99,7 +99,7 @@ function Lobby({
   connecting: boolean;
 }) {
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-y-auto stage-glow p-5 sm:p-8">
+    <div className="relative flex flex-1 items-center justify-center overflow-y-auto stage-glow p-5 max-md:saturate-125 max-sm:saturate-150 sm:p-8">
       <div className="w-full max-w-lg text-center stagger-children">
         <div className="mx-auto mb-8 flex size-16 items-center justify-center rounded-2xl gradient-primary text-primary-foreground glow-ring">
           <Volume2 className="size-7" />
@@ -203,7 +203,7 @@ function Grid({
   ];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-md:saturate-125 max-sm:saturate-150">
       <CallHeader icon={<Volume2 className="size-4" />} title={channel?.name ?? "Canal"} onLeave={onLeave}>
         <span className="flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-xs text-muted-foreground">
           <Users className="size-3" /> {tiles.length}
@@ -293,7 +293,7 @@ function ScreenStage({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-md:saturate-125 max-sm:saturate-150">
       <CallHeader
         icon={<MonitorPlay className="size-4" />}
         title={channel?.name ?? "Transmissão"}

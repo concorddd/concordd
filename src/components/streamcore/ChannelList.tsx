@@ -36,7 +36,7 @@ export function ChannelList({
   const text = channels.filter((c) => c.kind === "text");
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface max-md:saturate-125 max-sm:saturate-150">
       <header className="flex h-14 items-center justify-between border-b border-border px-4">
         <h2 className="truncate font-display text-sm font-semibold">{room?.name ?? "StreamCore"}</h2>
         {canManage && (
