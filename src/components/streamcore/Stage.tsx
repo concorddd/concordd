@@ -100,8 +100,8 @@ function Lobby({
 }) {
   return (
     <div className="relative flex flex-1 items-center justify-center overflow-y-auto stage-glow p-5 sm:p-8">
-      <div className="w-full max-w-lg text-center">
-        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl gradient-primary text-primary-foreground">
+      <div className="w-full max-w-lg text-center stagger-children">
+        <div className="mx-auto mb-8 flex size-16 items-center justify-center rounded-2xl gradient-primary text-primary-foreground glow-ring">
           <Volume2 className="size-7" />
         </div>
         <h1 className="font-display text-2xl font-semibold sm:text-3xl">
@@ -123,13 +123,13 @@ function Lobby({
           </Button>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
+        <div className="mt-10 grid grid-cols-1 gap-4 text-left sm:grid-cols-3">
           {[
             { label: "Latência", value: "< 60 ms" },
             { label: "Vídeo", value: "até 4K60" },
             { label: "Codec", value: "Opus / VP9" },
           ].map((s) => (
-            <div key={s.label} className="surface-panel rounded-xl px-4 py-3">
+            <div key={s.label} className="glass-panel hover-lift rounded-xl px-4 py-3">
               <p className="text-[11px] uppercase tracking-widest text-muted-foreground">{s.label}</p>
               <p className="font-display text-sm font-semibold">{s.value}</p>
             </div>
@@ -209,12 +209,12 @@ function Grid({
           <Users className="size-3" /> {tiles.length}
         </span>
       </CallHeader>
-      <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-3 overflow-y-auto p-3 landscape:grid-cols-3 sm:grid-cols-2 sm:gap-4 sm:p-6 xl:grid-cols-3">
+      <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-4 overflow-y-auto p-4 stagger-children landscape:grid-cols-3 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">
         {tiles.map((t) => (
           <div
             key={t.id}
             className={cn(
-              "relative flex min-h-32 flex-col items-center justify-center rounded-2xl border border-border bg-surface transition-all sm:min-h-40",
+              "relative flex min-h-32 flex-col items-center justify-center rounded-2xl glass-panel hover-lift sm:min-h-40",
               t.speaking && "animate-speaking border-transparent",
             )}
           >
