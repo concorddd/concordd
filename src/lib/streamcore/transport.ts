@@ -35,8 +35,22 @@ type PresenceState = {
   sharing: boolean;
 };
 
+/**
+ * STUN descobre o IP público; TURN é obrigatório quando os dois usuários estão
+ * em redes/NATs diferentes (o caso "meu amigo não me ouve"). Sem relay, a
+ * conexão P2P simplesmente nunca chega ao estado "connected".
+ */
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: ["stun:stun.l.google.com:19302", "stun:global.stun.twilio.com:3478"] },
+  {
+    urls: [
+      "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:443",
+      "turn:openrelay.metered.ca:443?transport=tcp",
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];
 
 function initialsOf(name: string) {
@@ -51,6 +65,7 @@ type PeerEntry = {
   makingOffer: boolean;
   ignoreOffer: boolean;
   stream: MediaStream;
+  pendingCandidates: RTCIceCandidateInit[];
 };
 
 export class MeshTransport {
@@ -199,6 +214,7 @@ export class MeshTransport {
       makingOffer: false,
       ignoreOffer: false,
       stream: new MediaStream(),
+      pendingCandidates: [],
     };
     this.peers.set(peerId, entry);
 
@@ -215,9 +231,12 @@ export class MeshTransport {
       if (candidate) void this.signal(peerId, { candidate: candidate.toJSON() });
     };
     pc.ontrack = ({ track }) => {
-      entry.stream.addTrack(track);
+      // Recria o MediaStream a cada faixa nova para que o <audio>/<video>
+      // receba um srcObject novo e volte a tocar (Chrome ignora faixas
+      // adicionadas a um stream já atribuído).
+      entry.stream = new MediaStream([...entry.stream.getTracks(), track]);
       track.addEventListener("ended", () => {
-        entry.stream.removeTrack(track);
+        entry.stream = new MediaStream(entry.stream.getTracks().filter((t) => t !== track));
         this.emit();
       });
       this.emit();
@@ -282,16 +301,30 @@ export class MeshTransport {
           data.description.type === "offer" && (entry.makingOffer || pc.signalingState !== "stable");
         entry.ignoreOffer = !entry.polite && offerCollision;
         if (entry.ignoreOffer) return;
+        // O par "educado" desfaz sua própria oferta antes de aceitar a do outro.
+        if (offerCollision) await pc.setLocalDescription({ type: "rollback" });
         await pc.setRemoteDescription(data.description);
+        for (const c of entry.pendingCandidates.splice(0)) {
+          try {
+            await pc.addIceCandidate(c);
+          } catch {
+            /* ignorar candidato inválido */
+          }
+        }
         if (data.description.type === "offer") {
           await pc.setLocalDescription();
           await this.signal(payload.from, { description: pc.localDescription?.toJSON() });
         }
       } else if (data.candidate) {
+        // Candidatos que chegam antes da descrição remota precisam esperar.
+        if (!pc.remoteDescription) {
+          entry.pendingCandidates.push(data.candidate);
+          return;
+        }
         try {
           await pc.addIceCandidate(data.candidate);
         } catch {
-          if (!entry.ignoreOffer) throw new Error("ice");
+          /* ignorar candidato inválido */
         }
       }
     } catch {
