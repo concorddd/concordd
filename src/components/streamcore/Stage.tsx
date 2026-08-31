@@ -214,7 +214,7 @@ function Grid({
           <div
             key={t.id}
             className={cn(
-              "relative flex min-h-32 flex-col items-center justify-center rounded-2xl border border-border bg-surface transition-all sm:min-h-40",
+              "relative flex min-h-32 flex-col items-center justify-center rounded-2xl glass-panel hover-lift sm:min-h-40",
               t.speaking && "animate-speaking border-transparent",
             )}
           >
