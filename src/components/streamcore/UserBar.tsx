@@ -22,7 +22,6 @@ export function UserBar({
   userId,
   avatarPath,
   onOpenProfile,
-  initials,
   status,
   canShare,
   onOpenSettings,
@@ -34,7 +33,6 @@ export function UserBar({
   userId: string;
   avatarPath: string | null;
   onOpenProfile: () => void;
-  initials: string;
   status: string;
   canShare: boolean;
   onOpenSettings: () => void;

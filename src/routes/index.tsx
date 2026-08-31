@@ -10,6 +10,7 @@ import { ChannelList, type Channel } from "@/components/streamcore/ChannelList";
 import { Stage } from "@/components/streamcore/Stage";
 import { UserBar } from "@/components/streamcore/UserBar";
 import { ChatPanel, type ChatMessage } from "@/components/streamcore/ChatPanel";
+import { ProfileDialog } from "@/components/streamcore/ProfileDialog";
 import { MediaSettingsDialog } from "@/components/streamcore/MediaSettingsDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -18,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { MAX_UPLOAD_BYTES } from "@/lib/streamcore/storage";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -54,6 +56,8 @@ function StreamCore() {
   const [textId, setTextId] = useState<string | null>(null);
   const [connectedChannelId, setConnectedChannelId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState<{ display_name: string; avatar_path: string | null } | null>(null);
   const [navOpen, setNavOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"chat" | "call">("chat");
   const [createOpen, setCreateOpen] = useState<"room" | "channel" | null>(null);
@@ -62,9 +66,11 @@ function StreamCore() {
   leaveRef.current = engine.leave;
 
   const displayName =
+    profile?.display_name ??
     (session?.user.user_metadata?.["display_name"] as string | undefined) ??
     session?.user.email?.split("@")[0] ??
     "Você";
+  const avatarPath = profile?.avatar_path ?? null;
   const initials = displayName.slice(0, 2).toUpperCase();
 
   useEffect(() => {
@@ -87,9 +93,18 @@ function StreamCore() {
       const list = (data ?? []) as Room[];
       setRooms(list);
       setRoomId((prev) => prev ?? list[0]?.id ?? null);
-      await supabase
+      const { data: prof } = await supabase
         .from("profiles")
-        .upsert({ id: session.user.id, display_name: displayName }, { onConflict: "id" });
+        .select("display_name, avatar_path")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      if (prof) {
+        setProfile({ display_name: prof.display_name, avatar_path: prof.avatar_path });
+      } else {
+        await supabase
+          .from("profiles")
+          .upsert({ id: session.user.id, display_name: displayName }, { onConflict: "id" });
+      }
     })();
   }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -171,10 +186,41 @@ function StreamCore() {
 
   const sendMessage = async (content: string) => {
     if (!session || !textId) return;
-    const { error } = await supabase
-      .from("messages")
-      .insert({ channel_id: textId, user_id: session.user.id, author_name: displayName, content });
+    const { error } = await supabase.from("messages").insert({
+      channel_id: textId,
+      user_id: session.user.id,
+      author_name: displayName,
+      content,
+      avatar_path: avatarPath,
+    });
     if (error) toast.error("Não foi possível enviar a mensagem.");
+  };
+
+  const sendFile = async (file: File) => {
+    if (!session || !textId) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error("O arquivo excede o limite de 100 MB.");
+      return;
+    }
+    const safe = file.name.replace(/[^\w.\-]+/g, "_");
+    const key = `${session.user.id}/${Date.now()}-${safe}`;
+    const { error: upErr } = await supabase.storage.from("chat-files").upload(key, file);
+    if (upErr) {
+      toast.error("Falha ao enviar o arquivo.");
+      return;
+    }
+    const { error } = await supabase.from("messages").insert({
+      channel_id: textId,
+      user_id: session.user.id,
+      author_name: displayName,
+      content: "",
+      avatar_path: avatarPath,
+      attachment_path: key,
+      attachment_name: file.name,
+      attachment_type: file.type || "application/octet-stream",
+      attachment_size: file.size,
+    });
+    if (error) toast.error("Não foi possível enviar o arquivo.");
   };
 
   const createRoom = async () => {
@@ -345,6 +391,7 @@ function StreamCore() {
                 channelName={textChannel?.name ?? "geral"}
                 messages={messages}
                 onSend={sendMessage}
+                onSendFile={sendFile}
                 disabled={!textId}
                 className="w-full border-l-0"
               />
@@ -354,6 +401,7 @@ function StreamCore() {
                 channelName={textChannel?.name ?? "geral"}
                 messages={messages}
                 onSend={sendMessage}
+                onSendFile={sendFile}
                 disabled={!textId}
               />
             </div>
@@ -363,7 +411,9 @@ function StreamCore() {
           <UserBar
             engine={engine}
             name={displayName}
-            initials={initials}
+            userId={session.user.id}
+            avatarPath={avatarPath}
+            onOpenProfile={() => setProfileOpen(true)}
             status={status}
             canShare
             onOpenSettings={() => setSettingsOpen(true)}
@@ -375,6 +425,15 @@ function StreamCore() {
           />
         </div>
       </div>
+
+      <ProfileDialog
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        userId={session.user.id}
+        displayName={displayName}
+        avatarPath={avatarPath}
+        onSaved={(next) => setProfile({ display_name: next.displayName, avatar_path: next.avatarPath })}
+      />
 
       <MediaSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} engine={engine} />
 
