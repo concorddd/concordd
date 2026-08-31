@@ -79,16 +79,23 @@ export class MeshTransport {
   private self: ConnectOptions | null = null;
   private state: LocalState = { speaking: false, muted: false, sharing: false };
 
+  private connectionId(userId: string) {
+    const nonce = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return `${userId}:${nonce}`;
+  }
+
   async connect(opts: ConnectOptions, initialTracks: MediaStreamTrack[] = []) {
     await this.disconnect();
-    this.self = opts;
+    // Uma conexão WebRTC precisa de identidade própria. Usar somente o id da
+    // conta fazia duas abas/sessões compartilhadas colidirem na mesma presença.
+    this.self = { ...opts, userId: this.connectionId(opts.userId) };
     for (const track of initialTracks) {
       this.localTracks.add(track);
       this.senders.set(track, new Map());
     }
 
-    const channel = supabase.channel(`voice:${opts.channelId}`, {
-      config: { presence: { key: opts.userId }, broadcast: { self: false } },
+    const channel = supabase.channel(`voice:${opts.roomId}:${opts.channelId}`, {
+      config: { presence: { key: this.self.userId }, broadcast: { self: false } },
     });
     this.channel = channel;
 
