@@ -14,11 +14,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MediaEngine } from "@/hooks/useMediaEngine";
+import { UserAvatar } from "@/components/streamcore/UserAvatar";
 
 export function UserBar({
   engine,
   name,
-  initials,
+  userId,
+  avatarPath,
+  onOpenProfile,
   status,
   canShare,
   onOpenSettings,
@@ -27,7 +30,9 @@ export function UserBar({
 }: {
   engine: MediaEngine;
   name: string;
-  initials: string;
+  userId: string;
+  avatarPath: string | null;
+  onOpenProfile: () => void;
   status: string;
   canShare: boolean;
   onOpenSettings: () => void;
@@ -39,15 +44,15 @@ export function UserBar({
   return (
     <footer className="flex shrink-0 flex-col gap-2 border-t border-border bg-background px-3 py-2 sm:h-16 sm:flex-row sm:items-center sm:gap-2 sm:py-0">
       <div className="flex items-center gap-2">
-        <div
-          className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-full gradient-primary text-xs font-bold text-primary-foreground",
-            active && "animate-speaking",
-          )}
+        <button
+          type="button"
+          onClick={onOpenProfile}
+          aria-label="Personalizar perfil"
+          className={cn("rounded-full", active && "animate-speaking")}
         >
-          {initials}
-        </div>
-        <div className="min-w-0 flex-1">
+          <UserAvatar userId={userId} name={name} avatarPath={avatarPath} className="size-9 text-xs" />
+        </button>
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={onOpenProfile}>
           <p className="truncate text-sm font-medium">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{status}</p>
         </div>
