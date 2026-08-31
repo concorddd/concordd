@@ -399,6 +399,7 @@ function StreamCore() {
             </div>
             <div className="hidden h-full shrink-0 md:flex">
               <ChatPanel
+                channelId={textId}
                 channelName={textChannel?.name ?? "geral"}
                 messages={messages}
                 onSend={sendMessage}
